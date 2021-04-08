@@ -7,7 +7,7 @@ from random import randrange
 import math
 import matplotlib.pyplot as plt
 
-class BaseAgent1():
+class BaseAgent2():
 
     def __init__(self, env):
 
@@ -28,7 +28,6 @@ class BaseAgent1():
         self.HILLY_SEARCHES = 0
         self.FORESTED_SEARCHES = 0
         self.MAZE_SEARCHES = 0
-
         
     def search(self, row, col):
         self.totalNbrOfSearches += 1
@@ -46,7 +45,6 @@ class BaseAgent1():
 
         elif(terrainType == 'MAZE'):
             self.MAZE_SEARCHES += 1
-
 
         return self.env.searchCell(row, col)
 
@@ -86,17 +84,27 @@ class BaseAgent1():
 
     def selectHighestBeliefCell(self, selectedCell):
 
-        shortestDistance = 1000000
+        cells = {}
+        max_prob = -1
 
-        tempMaxBeliefCells = []
+        shortestDistance = 1000000
         tempShortestDistanceMaxBeliefCells = []
 
-        for i in range(self.env.gridSize):
-            for j in range(self.env.gridSize):
-                if self.currentBelief[i][j] == self.highestBelief:
-                    tempMaxBeliefCells.append((i, j))
+        for tempX in range(self.env.gridSize):
+            for tempY in range(self.env.gridSize):
 
-        for cell in tempMaxBeliefCells:
+                    terrain = self.env.grid[tempX, tempY]
+                    prob_finding_target = self.currentBelief[tempX][tempY] * (1 - self.env.getFalseNegativeRateFromTerrain(terrain))
+                    if prob_finding_target > max_prob:
+                        if max_prob in cells:
+                            cells.pop(max_prob)
+                        max_prob = prob_finding_target
+                        cells[max_prob] = []
+                        cells[max_prob].append((tempX, tempY))
+                    if prob_finding_target == max_prob:
+                        cells[max_prob].append((tempX, tempY))
+
+        for cell in cells[max_prob]:
             tempDistance = self.getManDistance(selectedCell, cell)
             if(tempDistance == shortestDistance):
                 tempShortestDistanceMaxBeliefCells.append(cell)
@@ -113,6 +121,7 @@ class BaseAgent1():
     def execute(self):
 
         previousCell = (randrange(self.env.gridSize), randrange(self.env.gridSize))
+
         while True:
 
             selectedCell = self.selectHighestBeliefCell(previousCell)

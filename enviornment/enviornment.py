@@ -5,7 +5,7 @@ class Enviornment():
 
     def __init__(self):
 
-        self.gridSize = 10
+        self.gridSize = 20
 
         self.grid = np.zeros((self.gridSize, self.gridSize), dtype = object)
 
@@ -23,8 +23,6 @@ class Enviornment():
         self.putTarget()
 
     def createEnviornment(self):
-
-        print(self.nbrOfTerrainTypes)
         
         for x in range(self.gridSize):
             for y in range(self.gridSize):

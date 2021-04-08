@@ -7,7 +7,7 @@ from random import randrange
 import math
 import matplotlib.pyplot as plt
 
-class BaseAgent1():
+class ImprovedAgent():
 
     def __init__(self, env):
 
@@ -47,7 +47,6 @@ class BaseAgent1():
         elif(terrainType == 'MAZE'):
             self.MAZE_SEARCHES += 1
 
-
         return self.env.searchCell(row, col)
 
     def show(self):
@@ -86,33 +85,42 @@ class BaseAgent1():
 
     def selectHighestBeliefCell(self, selectedCell):
 
-        shortestDistance = 1000000
+        utility = np.zeros((self.env.gridSize, self.env.gridSize))
 
-        tempMaxBeliefCells = []
-        tempShortestDistanceMaxBeliefCells = []
-
+        util_cells = {}
+        max_util = -1
+        nextBestCell = None
         for i in range(self.env.gridSize):
             for j in range(self.env.gridSize):
-                if self.currentBelief[i][j] == self.highestBelief:
-                    tempMaxBeliefCells.append((i, j))
+                prob = self.currentBelief[i,j]
+                if selectedCell == (i, j):
+                    continue
+                utility[i][j] = prob / self.getManDistance(selectedCell, (i, j))
 
-        for cell in tempMaxBeliefCells:
-            tempDistance = self.getManDistance(selectedCell, cell)
-            if(tempDistance == shortestDistance):
-                tempShortestDistanceMaxBeliefCells.append(cell)
-            elif(tempDistance < shortestDistance):
-                shortestDistance = tempDistance
-                tempShortestDistanceMaxBeliefCells = []
-                tempShortestDistanceMaxBeliefCells.append(cell)
+                if utility[i][j] > max_util:
+                    if max_util in util_cells:
+                        util_cells.pop(max_util)
+                    # add this new max
+                    max_util = utility[i][j]
+                    if max_util not in util_cells:
+                        util_cells[max_util] = []
+                    util_cells[max_util].append((i, j))
 
-        nextCell = random.choice(tempShortestDistanceMaxBeliefCells)
-        distance = self.getManDistance(selectedCell, nextCell)
+                if utility[i][j] == max_util:
+                    util_cells[max_util].append((i, j))
+
+        nextBestCell = random.choice(util_cells[max_util])
+        distance = self.getManDistance(selectedCell, nextBestCell)
+        #if distance != 1:
+            #print(f"Distance: {distance}")
         self.totalManDistance += distance
-        return nextCell
+        return nextBestCell
+
 
     def execute(self):
 
         previousCell = (randrange(self.env.gridSize), randrange(self.env.gridSize))
+
         while True:
 
             selectedCell = self.selectHighestBeliefCell(previousCell)
