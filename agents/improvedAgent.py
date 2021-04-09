@@ -141,5 +141,4 @@ class ImprovedAgent():
             #plt.imshow(self.currentBelief, interpolation='none')
             #plt.pause(0.00001)
 
-            # input()
         return self.getTotalPerformance(), self.FLAT_SEARCHES, self.HILLY_SEARCHES, self.FORESTED_SEARCHES, self.MAZE_SEARCHES
