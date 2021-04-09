@@ -134,8 +134,6 @@ class BaseAgent1():
 
             previousCell = selectedCell
 
-            #self.update_visualization(*selectedCell)
-
             #plt.imshow(self.currentBelief, interpolation='none')
             #plt.pause(0.00001)
 
