@@ -5,7 +5,7 @@ class Enviornment():
 
     def __init__(self):
 
-        self.gridSize = 20
+        self.gridSize = 15
 
         self.grid = np.zeros((self.gridSize, self.gridSize), dtype = object)
 

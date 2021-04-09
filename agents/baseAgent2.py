@@ -48,29 +48,25 @@ class BaseAgent2():
 
         return self.env.searchCell(row, col)
 
-    def show(self):
-        for row in self.currentBelief:
-            print(row)
-
     def getManDistance(self, selectedCell, nextCellToSearch):
         return math.fabs(selectedCell[0] - nextCellToSearch[0]) + math.fabs(selectedCell[1] - nextCellToSearch[1])
 
     def getTotalPerformance(self):
         return self.totalNbrOfSearches + self.totalManDistance
 
-    def calculateNewProbability(self, previousSelectCellProbability, falseNegativeProbability):
-        # P(T != Cj) = { P(Ta = Cj) X P(T != Cj)   +  P(Ta != Cj) X P(T != Cj)
-        #                 Prior     X P_false_neg  +  (1 - Prior) X 1
-        return previousSelectCellProbability * falseNegativeProbability + (1 - previousSelectCellProbability) * 1
+    def updateBelief(self, tempCurrentCell, selectedCell, previousSelectCellProbability, falseNegativeProbability):
 
-    def update(self, current_cell, searched_cell, previousSelectCellProbability, falseNegativeProbability):
+        #total probability of getting data
+        totalProb = (previousSelectCellProbability * falseNegativeProbability + (1 - previousSelectCellProbability) * 1)
 
-        if current_cell == searched_cell:
-            posterior = previousSelectCellProbability * falseNegativeProbability / self.calculateNewProbability(previousSelectCellProbability, falseNegativeProbability)
-        else:
-            previousProbability = self.currentBelief[current_cell[0]][current_cell[1]]
-            posterior = previousProbability / self.calculateNewProbability(previousSelectCellProbability, falseNegativeProbability)
-        self.currentBelief[current_cell[0]][current_cell[1]] = posterior
+        if (tempCurrentCell != selectedCell):
+            previousCurrentCellProb = self.currentBelief[tempCurrentCell[0]][tempCurrentCell[1]]
+            postBelief = previousCurrentCellProb / totalProb
+
+        elif tempCurrentCell == selectedCell:
+            postBelief = previousSelectCellProbability * falseNegativeProbability / totalProb
+        
+        self.currentBelief[tempCurrentCell[0]][tempCurrentCell[1]] = postBelief
 
     
     #checks to see if position (i,j) is a valid position
@@ -82,29 +78,30 @@ class BaseAgent2():
         return True
 
 
-    def selectHighestBeliefCell(self, selectedCell):
+    def selectHighestConfidenceCell(self, selectedCell):
 
-        cells = {}
-        max_prob = -1
-
+        tempHighestConfidence = -1000000
         shortestDistance = 1000000
         tempShortestDistanceMaxBeliefCells = []
+        highestConfidenceCells = []
 
+        #get cells with the highest confidence 
         for tempX in range(self.env.gridSize):
             for tempY in range(self.env.gridSize):
 
-                    terrain = self.env.grid[tempX, tempY]
-                    prob_finding_target = self.currentBelief[tempX][tempY] * (1 - self.env.getFalseNegativeRateFromTerrain(terrain))
-                    if prob_finding_target > max_prob:
-                        if max_prob in cells:
-                            cells.pop(max_prob)
-                        max_prob = prob_finding_target
-                        cells[max_prob] = []
-                        cells[max_prob].append((tempX, tempY))
-                    if prob_finding_target == max_prob:
-                        cells[max_prob].append((tempX, tempY))
+                    terrainType = self.env.grid[tempX, tempY]
+                    confidenceValue = self.currentBelief[tempX][tempY] * (1 - self.env.getFalseNegativeRateFromTerrain(terrainType))
 
-        for cell in cells[max_prob]:
+                    if confidenceValue == tempHighestConfidence:
+                        highestConfidenceCells.append((tempX, tempY))
+
+                    elif confidenceValue > tempHighestConfidence:
+                        tempHighestConfidence = confidenceValue
+                        highestConfidenceCells = []
+                        highestConfidenceCells.append((tempX, tempY))
+
+        #get random cell with the shortest distance that has the highest confidence
+        for cell in highestConfidenceCells:
             tempDistance = self.getManDistance(selectedCell, cell)
             if(tempDistance == shortestDistance):
                 tempShortestDistanceMaxBeliefCells.append(cell)
@@ -114,40 +111,37 @@ class BaseAgent2():
                 tempShortestDistanceMaxBeliefCells.append(cell)
 
         nextCell = random.choice(tempShortestDistanceMaxBeliefCells)
-        distance = self.getManDistance(selectedCell, nextCell)
-        self.totalManDistance += distance
+        self.totalManDistance += shortestDistance
         return nextCell
 
     def execute(self):
 
         previousCell = (randrange(self.env.gridSize), randrange(self.env.gridSize))
-
         while True:
 
-            selectedCell = self.selectHighestBeliefCell(previousCell)
-            terrain = self.env.get_terrain(*selectedCell)
-            #print(f"selectedCell: {selectedCell}, terrain: {terrain}")
+            selectedCell = self.selectHighestConfidenceCell(previousCell)
+            terrainType = self.env.grid[selectedCell[0], selectedCell[1]]
 
-            found = self.search(*selectedCell)
+            targetFound = self.search(selectedCell[0], selectedCell[1])
 
-            if found:
+            if targetFound:
                 break
 
             self.highestBelief = -1
             previousSelectCellProbability = self.currentBelief[selectedCell[0]][selectedCell[1]]
             for i in range(self.env.gridSize):
                 for j in range(self.env.gridSize):
-                    self.update((i, j), selectedCell, previousSelectCellProbability, self.env.getFalseNegativeRateFromTerrain(terrain))
+                    self.updateBelief((i, j), selectedCell, previousSelectCellProbability, self.env.getFalseNegativeRateFromTerrain(terrainType))
                     if self.currentBelief[i][j] > self.highestBelief:
                         self.highestBelief = self.currentBelief[i][j]
 
-            # Normalize the probability values
+            #normalize the probability values
             sumOfAllProbabilities = np.sum(self.currentBelief)
-            self.currentBelief /= sumOfAllProbabilities
             self.highestBelief /= sumOfAllProbabilities
+            self.currentBelief /= sumOfAllProbabilities
 
             previousCell = selectedCell
-            # Update the visualization matrix
+
             #self.update_visualization(*selectedCell)
 
             #plt.imshow(self.currentBelief, interpolation='none')

@@ -49,29 +49,25 @@ class ImprovedAgent():
 
         return self.env.searchCell(row, col)
 
-    def show(self):
-        for row in self.currentBelief:
-            print(row)
-
     def getManDistance(self, selectedCell, nextCellToSearch):
         return math.fabs(selectedCell[0] - nextCellToSearch[0]) + math.fabs(selectedCell[1] - nextCellToSearch[1])
 
     def getTotalPerformance(self):
         return self.totalNbrOfSearches + self.totalManDistance
 
-    def calculateNewProbability(self, previousSelectCellProbability, falseNegativeProbability):
-        # P(T != Cj) = { P(Ta = Cj) X P(T != Cj)   +  P(Ta != Cj) X P(T != Cj)
-        #                 Prior     X P_false_neg  +  (1 - Prior) X 1
-        return previousSelectCellProbability * falseNegativeProbability + (1 - previousSelectCellProbability) * 1
+    def updateBelief(self, tempCurrentCell, selectedCell, previousSelectCellProbability, falseNegativeProbability):
 
-    def update(self, current_cell, searched_cell, previousSelectCellProbability, falseNegativeProbability):
+        #total probability of getting data
+        totalProb = (previousSelectCellProbability * falseNegativeProbability + (1 - previousSelectCellProbability) * 1)
 
-        if current_cell == searched_cell:
-            posterior = previousSelectCellProbability * falseNegativeProbability / self.calculateNewProbability(previousSelectCellProbability, falseNegativeProbability)
-        else:
-            previousProbability = self.currentBelief[current_cell[0]][current_cell[1]]
-            posterior = previousProbability / self.calculateNewProbability(previousSelectCellProbability, falseNegativeProbability)
-        self.currentBelief[current_cell[0]][current_cell[1]] = posterior
+        if (tempCurrentCell != selectedCell):
+            previousCurrentCellProb = self.currentBelief[tempCurrentCell[0]][tempCurrentCell[1]]
+            postBelief = previousCurrentCellProb / totalProb
+
+        elif tempCurrentCell == selectedCell:
+            postBelief = previousSelectCellProbability * falseNegativeProbability / totalProb
+        
+        self.currentBelief[tempCurrentCell[0]][tempCurrentCell[1]] = postBelief
 
     
     #checks to see if position (i,j) is a valid position
@@ -83,36 +79,33 @@ class ImprovedAgent():
         return True
 
 
-    def selectHighestBeliefCell(self, selectedCell):
+    def selectNextBestCell(self, selectedCell):
 
         utility = np.zeros((self.env.gridSize, self.env.gridSize))
 
-        util_cells = {}
-        max_util = -1
-        nextBestCell = None
+        bestUtilityCells = []
+        bestUtilityValue = -1000000
+
         for i in range(self.env.gridSize):
             for j in range(self.env.gridSize):
-                prob = self.currentBelief[i,j]
+
+                tempBelief = self.currentBelief[i,j]
+
                 if selectedCell == (i, j):
                     continue
-                utility[i][j] = prob / self.getManDistance(selectedCell, (i, j))
 
-                if utility[i][j] > max_util:
-                    if max_util in util_cells:
-                        util_cells.pop(max_util)
-                    # add this new max
-                    max_util = utility[i][j]
-                    if max_util not in util_cells:
-                        util_cells[max_util] = []
-                    util_cells[max_util].append((i, j))
+                utility[i][j] = tempBelief / self.getManDistance(selectedCell, (i, j))
 
-                if utility[i][j] == max_util:
-                    util_cells[max_util].append((i, j))
+                if utility[i][j] > bestUtilityValue:
+                    bestUtilityValue = utility[i][j]
+                    bestUtilityCells = []
+                    bestUtilityCells.append((i, j))
 
-        nextBestCell = random.choice(util_cells[max_util])
+                if utility[i][j] == bestUtilityValue:
+                    bestUtilityCells.append((i, j))
+
+        nextBestCell = random.choice(bestUtilityCells)
         distance = self.getManDistance(selectedCell, nextBestCell)
-        #if distance != 1:
-            #print(f"Distance: {distance}")
         self.totalManDistance += distance
         return nextBestCell
 
@@ -120,33 +113,31 @@ class ImprovedAgent():
     def execute(self):
 
         previousCell = (randrange(self.env.gridSize), randrange(self.env.gridSize))
-
         while True:
 
-            selectedCell = self.selectHighestBeliefCell(previousCell)
-            terrain = self.env.get_terrain(*selectedCell)
-            #print(f"selectedCell: {selectedCell}, terrain: {terrain}")
+            selectedCell = self.selectNextBestCell(previousCell)
+            terrainType = self.env.grid[selectedCell[0], selectedCell[1]]
 
-            found = self.search(*selectedCell)
+            targetFound = self.search(selectedCell[0], selectedCell[1])
 
-            if found:
+            if targetFound:
                 break
 
             self.highestBelief = -1
             previousSelectCellProbability = self.currentBelief[selectedCell[0]][selectedCell[1]]
             for i in range(self.env.gridSize):
                 for j in range(self.env.gridSize):
-                    self.update((i, j), selectedCell, previousSelectCellProbability, self.env.getFalseNegativeRateFromTerrain(terrain))
+                    self.updateBelief((i, j), selectedCell, previousSelectCellProbability, self.env.getFalseNegativeRateFromTerrain(terrainType))
                     if self.currentBelief[i][j] > self.highestBelief:
                         self.highestBelief = self.currentBelief[i][j]
 
-            # Normalize the probability values
+            #normalize the probability values
             sumOfAllProbabilities = np.sum(self.currentBelief)
-            self.currentBelief /= sumOfAllProbabilities
             self.highestBelief /= sumOfAllProbabilities
+            self.currentBelief /= sumOfAllProbabilities
 
             previousCell = selectedCell
-            # Update the visualization matrix
+
             #self.update_visualization(*selectedCell)
 
             #plt.imshow(self.currentBelief, interpolation='none')
